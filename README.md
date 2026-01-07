@@ -22,6 +22,55 @@ By completing this learning path, you will:
 
 ---
 
+## Timeline
+
+**Total Duration:** ~4-6 weeks (at 1-2 hours/day)
+
+### Suggested Schedule
+
+```
+Week 1: Foundation
+├── Days 1-2: Module 1 - SDK Fundamentals
+├── Days 3-4: Module 2 - Pydantic Models
+└── Days 5-7: Module 3 - Structured Outputs
+
+Week 2: Core Skills
+├── Days 1-3: Module 4 - Tool Use
+└── Days 4-7: Module 5 - Pydantic AI Framework
+
+Week 3-4: Agent Development
+├── Days 1-5: Module 6 - Building AI Agents
+└── Days 6-10: Module 7 - Multi-Agent Systems
+
+Week 5: Advanced & Projects
+├── Days 1-3: Module 8 - MCP
+└── Days 4-7: Build a project from Project Ideas
+```
+
+### Time Estimates per Module
+
+| Module | Estimated Time | Difficulty |
+|--------|---------------|------------|
+| 1. SDK Fundamentals | 2-3 hours | ⭐ Beginner |
+| 2. Pydantic Models | 2-3 hours | ⭐ Beginner |
+| 3. Structured Outputs | 3-4 hours | ⭐⭐ Intermediate |
+| 4. Tool Use | 4-5 hours | ⭐⭐ Intermediate |
+| 5. Pydantic AI | 5-6 hours | ⭐⭐ Intermediate |
+| 6. AI Agents | 6-8 hours | ⭐⭐⭐ Advanced |
+| 7. Multi-Agent | 8-10 hours | ⭐⭐⭐ Advanced |
+| 8. MCP | 4-5 hours | ⭐⭐⭐ Advanced |
+
+**Total:** ~35-45 hours of focused learning
+
+### Milestones
+
+- [ ] **Milestone 1** (End of Week 1): Can make API calls and get structured JSON responses
+- [ ] **Milestone 2** (End of Week 2): Can build tools that Claude can call
+- [ ] **Milestone 3** (End of Week 4): Can build autonomous agents
+- [ ] **Milestone 4** (End of Week 5): Can build production-ready multi-agent systems
+
+---
+
 ## Learning Modules
 
 ### Module 1: Anthropic SDK Fundamentals
@@ -215,16 +264,18 @@ print(result.data)
 
 ## Progress Tracker
 
-| Module | Status | Notes |
-|--------|--------|-------|
-| 1. SDK Fundamentals | ⬜ Not Started | |
-| 2. Pydantic Models | ⬜ Not Started | |
-| 3. Structured Outputs | ⬜ Not Started | |
-| 4. Tool Use | ⬜ Not Started | |
-| 5. Pydantic AI | ⬜ Not Started | |
-| 6. AI Agents | ⬜ Not Started | |
-| 7. Multi-Agent | ⬜ Not Started | |
-| 8. MCP | ⬜ Not Started | |
+| Module | Time | Status | Started | Completed |
+|--------|------|--------|---------|-----------|
+| 1. SDK Fundamentals | 2-3h | ⬜ Not Started | | |
+| 2. Pydantic Models | 2-3h | ⬜ Not Started | | |
+| 3. Structured Outputs | 3-4h | ⬜ Not Started | | |
+| 4. Tool Use | 4-5h | ⬜ Not Started | | |
+| 5. Pydantic AI | 5-6h | ⬜ Not Started | | |
+| 6. AI Agents | 6-8h | ⬜ Not Started | | |
+| 7. Multi-Agent | 8-10h | ⬜ Not Started | | |
+| 8. MCP | 4-5h | ⬜ Not Started | | |
+
+**Status Legend:** ⬜ Not Started | 🔄 In Progress | ✅ Completed | ⏸️ Paused
 
 ---
 
