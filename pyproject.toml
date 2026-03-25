@@ -1,0 +1,18 @@
+[project]
+name = "learn-claude-pydantic"
+version = "0.1.0"
+description = "Learning path for Claude Agent SDK & Pydantic AI"
+requires-python = ">=3.11"
+dependencies = [
+    "claude-agent-sdk",
+    "pydantic>=2.0",
+    "pydantic-ai",
+    "mcp",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+]

@@ -1,63 +1,55 @@
-# Claude SDK & Pydantic AI Learning Path
+# Claude Agent SDK & Pydantic AI Learning Path
 
-A structured learning path for mastering the Anthropic Claude SDK and Pydantic AI framework.
+Python 3.11+ | async/await | type hints | `uv sync` to install
 
-## Prerequisites
-
-Python 3.11+ | async/await basics | type hints | [Anthropic API key](https://console.anthropic.com/)
-
-## Timeline (~35-45 hours)
+## The Path
 
 ```
-Week 1: Foundation     → Modules 1-3 (SDK, Pydantic, Structured Outputs)
-Week 2: Core Skills    → Modules 4-5 (Tool Use, Pydantic AI)
-Week 3-4: Agents       → Modules 6-7 (AI Agents, Multi-Agent)
-Week 5: Advanced       → Module 8 (MCP) + Project
+Step 0  learn-claude-code          Agent loops, tools, subagents, multi-agent
+   ↓
+Step 1  Pydantic + Structured Out  Type-safe validated responses from Claude
+   ↓
+Step 2  Pydantic AI Framework      Agents with DI, typed tools, test harness
+   ↓
+Step 3  MCP                        Connect agents to external services
+   ↓
+Step 4  Capstone                   Build a real project combining it all
 ```
-
-### Milestones
-
-- [ ] **Week 1**: API calls + structured JSON responses
-- [ ] **Week 2**: Tools that Claude can call
-- [ ] **Week 4**: Autonomous agents
-- [ ] **Week 5**: Production-ready multi-agent systems
-
-## Learning Modules
-
-| # | Module | Goal |
-|---|--------|------|
-| 1 | [SDK Fundamentals](docs/modules/01-sdk-fundamentals.md) | Interact with Claude API |
-| 2 | [Pydantic Models](docs/modules/02-pydantic-models.md) | Structured data validation |
-| 3 | [Structured Outputs](docs/modules/03-structured-outputs.md) | Guaranteed JSON responses |
-| 4 | [Tool Use](docs/modules/04-tool-use.md) | Function calling |
-| 5 | [Pydantic AI](docs/modules/05-pydantic-ai.md) | Build agents the FastAPI way |
-| 6 | [AI Agents](docs/modules/06-agents.md) | Autonomous reasoning agents |
-| 7 | [Multi-Agent](docs/modules/07-multi-agent.md) | Coordinate multiple agents |
-| 8 | [MCP](docs/modules/08-mcp.md) | Model Context Protocol |
-
-→ [Quick Reference](docs/QUICKSTART.md)
-
-## Project Ideas
-
-1. **CLI Assistant** - File operations helper
-2. **Code Reviewer** - Reviews and suggests improvements
-3. **Research Bot** - Multi-agent search and summarize
-4. **Data Extractor** - Structured data from unstructured text
 
 ## Progress
 
-| Module | Time | Status | Started | Completed |
-|--------|------|--------|---------|-----------|
-| 1. SDK Fundamentals | 2-3h | ⬜ | | |
-| 2. Pydantic Models | 2-3h | ⬜ | | |
-| 3. Structured Outputs | 3-4h | ⬜ | | |
-| 4. Tool Use | 4-5h | ⬜ | | |
-| 5. Pydantic AI | 5-6h | ⬜ | | |
-| 6. AI Agents | 6-8h | ⬜ | | |
-| 7. Multi-Agent | 8-10h | ⬜ | | |
-| 8. MCP | 4-5h | ⬜ | | |
+- [ ] **Step 0** — [learn-claude-code](learn-claude-code/) (submodule, prerequisite)
+  - [ ] s01 — The Agent Loop: one tool + one `while True` loop = a working agent
+  - [ ] s02 — Tool Use: add tools via a dispatch map, the loop never changes
+  - [ ] s03 — TodoWrite: list steps first, track with TodoManager, doubles completion
+  - [ ] s04 — Subagents: spawn child agents with fresh context for subtasks
+  - [ ] s05 — Skills: load domain knowledge on-demand via `tool_result`, not system prompt
+  - [ ] s06 — Context Compact: three-layer compression for infinite sessions
+  - [ ] s07 — Task System: file-based task graph with dependencies, persisted to disk
+  - [ ] s08 — Background Tasks: daemon threads for slow ops, agent keeps thinking
+  - [ ] s09 — Agent Teams: delegate to persistent teammates via JSONL mailboxes
+  - [ ] s10 — Team Protocols: request-response pattern, shutdown + plan approval FSMs
+  - [ ] s11 — Autonomous Agents: agents scan a shared board and auto-claim tasks
+  - [ ] s12 — Worktree Isolation: each agent works in its own git worktree, no interference
+- [ ] **Step 1** — [Pydantic + Structured Outputs](docs/modules/01-pydantic-structured-outputs.md) ~3-4h
+  - BaseModel, validators, `model_json_schema()`, enforce typed Claude responses
+- [ ] **Step 2** — [Pydantic AI Framework](docs/modules/02-pydantic-ai.md) ~5-6h
+  - `Agent`, `result_type`, `@agent.tool`, `RunContext`, `TestModel`
+- [ ] **Step 3** — [MCP](docs/modules/03-mcp.md) ~3-4h
+  - Connect to MCP servers, build your own, integrate with Agent SDK & Pydantic AI
+- [ ] **Step 4** — [Capstone Project](docs/modules/04-capstone.md) ~4-6h
+  - Code reviewer, research assistant, data pipeline, or CLI task manager
 
-⬜ Not Started | 🔄 In Progress | ✅ Completed
+> [Quick Reference](docs/QUICKSTART.md) — setup + code snippets for each step
+
+## Two SDKs, One Path
+
+| SDK | What it gives you |
+|-----|-------------------|
+| `claude-agent-sdk` | Claude Code-style automation (Read, Edit, Bash, etc.) |
+| `pydantic-ai` | Type-safe agents with dependency injection and structured results |
+
+Both support MCP. The capstone combines them.
 
 ## License
 
