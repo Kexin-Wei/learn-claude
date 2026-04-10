@@ -1,3 +1,6 @@
 [submodule "learn-claude-code"]
 	path = learn-claude-code
 	url = git@github.com:Kexin-Wei/learn-claude-code.git
+[submodule "claude-code"]
+	path = claude-code
+	url = git@github.com:anthropics/claude-code.git
