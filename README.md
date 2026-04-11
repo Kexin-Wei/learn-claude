@@ -5,15 +5,19 @@ Python 3.11+ | async/await | type hints | `uv sync` to install
 ## The Path
 
 ```
-Step 0  learn-claude-code          Agent loops, tools, subagents, multi-agent
+Step 0    learn-claude-code          Agent loops, tools, subagents, multi-agent
    ↓
-Step 1  Pydantic + Structured Out  Type-safe validated responses from Claude
+Step 0.5  Production Patterns        Permission, memory, error recovery, prompt pipeline
    ↓
-Step 2  Pydantic AI Framework      Agents with DI, typed tools, test harness
+Step 0.6  Extensibility              Hooks, plugins, cron scheduling
    ↓
-Step 3  MCP                        Connect agents to external services
+Step 1    Pydantic + Structured Out  Type-safe validated responses from Claude
    ↓
-Step 4  Capstone                   Build a real project combining it all
+Step 2    Pydantic AI Framework      Agents with DI, typed tools, test harness
+   ↓
+Step 3    MCP                        Connect agents to external services
+   ↓
+Step 4    Capstone                   Build a real project combining it all
 ```
 
 ## Progress
@@ -21,13 +25,13 @@ Step 4  Capstone                   Build a real project combining it all
 - [ ] **Step 0** — [learn-claude-code](learn-claude-code/) (submodule, prerequisite)
   - [x] s01 — The Agent Loop: one tool + one `while True` = an agent
     - [x] Read: [docs/en/s01](learn-claude-code/docs/en/s01-the-agent-loop.md)
-    - [ ] **Code: [`ex01_agent_loop.py`](learn-claude-code/exercises/ex01_agent_loop.py)** — implement `agent_loop()` from scratch
+    - [x] **Code: [`ex01_agent_loop.py`](learn-claude-code/exercises/ex01_agent_loop.py)** — implement `agent_loop()` from scratch
   - [x] s02 — Tool Use: dispatch map, the loop never changes
-    - [ ] Read: [docs/en/s02](learn-claude-code/docs/en/s02-tool-use.md)
-    - [ ] **Code: [`ex02_tool_use.py`](learn-claude-code/exercises/ex02_tool_use.py)** — implement file tools, dispatch map, JSON schemas
-  - [ ] s03 — TodoWrite: planning with a nag reminder
-    - [ ] Read: [docs/en/s03](learn-claude-code/docs/en/s03-todo-write.md)
-    - [ ] **Code: [`ex03_todo_write.py`](learn-claude-code/exercises/ex03_todo_write.py)** — `TodoManager` class + nag reminder injection
+    - [x] Read: [docs/en/s02](learn-claude-code/docs/en/s02-tool-use.md)
+    - [x] **Code: [`ex02_tool_use.py`](learn-claude-code/exercises/ex02_tool_use.py)** — implement file tools, dispatch map, JSON schemas
+  - [x] s03 — TodoWrite: planning with a nag reminder
+    - [x] Read: [docs/en/s03](learn-claude-code/docs/en/s03-todo-write.md)
+    - [x] **Code: [`ex03_todo_write.py`](learn-claude-code/exercises/ex03_todo_write.py)** — `TodoManager` class + nag reminder injection
   - [ ] s04 — Subagents: fresh context, summary-only return
     - [ ] Read: [docs/en/s04](learn-claude-code/docs/en/s04-subagent.md)
     - [ ] **Code: [`ex04_subagent.py`](learn-claude-code/exercises/ex04_subagent.py)** — `run_subagent()` with isolated context + parent dispatch
@@ -55,6 +59,28 @@ Step 4  Capstone                   Build a real project combining it all
   - [ ] s12 — Worktree Isolation: each agent in its own git worktree
     - [ ] Read: [docs/en/s12](learn-claude-code/docs/en/s12-worktree-task-isolation.md)
     - [ ] **Code: [`ex12_worktree_isolation.py`](learn-claude-code/exercises/ex12_worktree_isolation.py)** — `WorktreeManager` + `EventBus`, task-worktree binding lifecycle
+- [ ] **Step 0.5** — Production Patterns (study from [claude-code](claude-code/src/) leaked source) ~3 days
+  - [ ] Permission System: `allow → deny → ask` pipeline, classifier auto-approval, interactive prompts
+    - [ ] Read: [`useCanUseTool.tsx`](claude-code/src/hooks/useCanUseTool.tsx) — the main permission pipeline
+    - [ ] Read: [`toolPermission/`](claude-code/src/hooks/toolPermission/) — handlers for interactive, coordinator, swarm modes
+  - [ ] Memory System: file-based `MEMORY.md` index + topic files, 4 memory types, cross-session persistence
+    - [ ] Read: [`memdir.ts`](claude-code/src/memdir/memdir.ts) — core memory system
+    - [ ] Read: [`memoryTypes.ts`](claude-code/src/memdir/memoryTypes.ts) — the 4-type taxonomy (user, feedback, project, reference)
+  - [ ] Error Recovery: retry with backoff, circuit breakers, reactive compaction on `prompt_too_long`
+    - [ ] Read: [`autoCompact.ts`](claude-code/src/services/compact/autoCompact.ts) — circuit breakers + reactive compaction
+    - [ ] Read: [`api/errors.ts`](claude-code/src/services/api/) — error categorization
+  - [ ] System Prompt Pipeline: dynamically assembled from base + tools + memory + user context
+    - [ ] Read: [`QueryEngine.ts`](claude-code/src/QueryEngine.ts) (lines 286-325) — prompt assembly
+- [ ] **Step 0.6** — Extensibility (study from [claude-code](claude-code/src/) leaked source) ~2 days
+  - [ ] Hook/Plugin System: lifecycle observers that block, annotate, or extend tool execution
+    - [ ] Read: [`hooks/`](claude-code/src/hooks/) — 83 hook files covering every lifecycle event
+    - [ ] Read: [`services/plugins/`](claude-code/src/services/plugins/) — plugin loading and management
+  - [ ] MCP Deep-Dive: production MCP client with OAuth, resource subscriptions, tool discovery
+    - [ ] Read: [`services/mcp/`](claude-code/src/services/mcp/) — full MCP integration
+    - [ ] Read: [`tools/MCPTool/`](claude-code/src/tools/MCPTool/) + [`McpAuthTool/`](claude-code/src/tools/McpAuthTool/)
+  - [ ] Cron Scheduler: agent-initiated scheduled tasks for proactive behavior
+    - [ ] Read: [`tools/ScheduleCronTool/`](claude-code/src/tools/ScheduleCronTool/) — cron tool
+    - [ ] Read: [`hooks/useScheduledTasks.ts`](claude-code/src/hooks/useScheduledTasks.ts) — task scheduling
 - [ ] **Step 1** — [Pydantic + Structured Outputs](docs/modules/01-pydantic-structured-outputs.md) ~3-4h
   - BaseModel, validators, `model_json_schema()`, enforce typed Claude responses
 - [ ] **Step 2** — [Pydantic AI Framework](docs/modules/02-pydantic-ai.md) ~5-6h
