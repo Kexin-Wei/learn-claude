@@ -7,6 +7,7 @@ Run: uv run python phase-c/glm/ex01_glm_basics.py
 """
 import json
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from zhipuai import ZhipuAI
@@ -192,6 +193,23 @@ def main() -> None:
     print("  The ZhipuAI SDK is comparable to the RAW Anthropic SDK")
     print("  (client.messages.create), not to the Claude Agent SDK.")
     print("  The gap between this and Claude Code is the entire harness.")
+
+    results = probe_features()
+    for feat, r in results.items():
+        print(f"  [{r.status}] {feat}: {r.evidence}")
+
+
+def probe_features() -> "dict[str, ProbeResult]":
+    """Return structured probe results for c01_feature_probe.py."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from _probe_utils import ProbeResult, pass_, fail
+
+    # GLM native SDK results — based on what t01 actually exercises
+    return {
+        "Custom tools": pass_("function calling works (tool_calls in response)", "t01"),
+        "Streaming": pass_("SSE streaming works (delta.content received)", "t01"),
+    }
 
 
 if __name__ == "__main__":

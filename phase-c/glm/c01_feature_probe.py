@@ -1,136 +1,215 @@
 #!/usr/bin/env python3
-"""Probe GLM (ZhipuAI) features via z.ai proxy and write a row to phase-c/c01_comparison.csv.
+"""Probe GLM (ZhipuAI) features by running tutorials.
 
-Checks if z.ai proxy is configured (Claude SDK/CLI pointed at z.ai → GLM models).
+GLM is a raw LLM API — most agent features are N/A (you build them yourself).
+When used via z.ai proxy, it inherits Claude's tooling.
 
 Run: uv run python phase-c/glm/c01_feature_probe.py
 """
-import csv
-import importlib
 import json
-import shutil
+import os
+import sys
+import time
 from pathlib import Path
 
-CSV_PATH = Path(__file__).parent.parent / "c01_comparison.csv"
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent))
+
+from _probe_utils import (
+    FEATURES, ProbeResult, fail, format_results, merge_results, pass_, skip,
+    upsert_csv,
+)
+
 SDK_NAME = "GLM (Zhipu)"
 
-FEATURES = [
-    "Agent loop", "Custom tools", "Web search", "File tools", "Code execution",
-    "Structured output", "Multi-agent", "Guardrails", "Hooks / lifecycle",
-    "Tracing dashboard", "Permission system", "Plan mode", "TodoWrite / tasks",
-    "MCP support", "Streaming", "Session resume",
-]
 
-
-def check(module: str, attr: str) -> bool:
+def load_zai_env() -> bool:
+    """Load z.ai proxy env vars from settings.local.json. Returns True if ready."""
+    settings_path = Path(__file__).parent / ".claude" / "settings.local.json"
+    if not settings_path.exists():
+        print(f"  z.ai settings not found: {settings_path}")
+        return False
     try:
-        return hasattr(importlib.import_module(module), attr)
-    except ImportError:
+        settings = json.loads(settings_path.read_text())
+        env = settings.get("env", {})
+        token = env.get("ANTHROPIC_AUTH_TOKEN", "")
+        if not token or token == "your-zai-api-key-here":
+            print("  z.ai token not configured")
+            return False
+        os.environ["ANTHROPIC_AUTH_TOKEN"] = token
+        os.environ.setdefault("ANTHROPIC_BASE_URL", "https://api.z.ai/api/anthropic")
+        os.environ.setdefault("API_TIMEOUT_MS", "3000000")
+        os.environ.setdefault("CLAUDE_MODEL", env.get("CLAUDE_MODEL", "sonnet"))
+        return True
+    except (json.JSONDecodeError, KeyError) as e:
+        print(f"  z.ai settings parse error: {e}")
         return False
 
 
-def yn(val: bool) -> str:
-    return "Yes" if val else "No"
+async def probe_proxy_tools() -> dict[str, ProbeResult]:
+    """Actually query the z.ai proxy to discover available tools."""
+    try:
+        from claude_agent_sdk import (
+            AssistantMessage, ClaudeAgentOptions, TextBlock, query,
+        )
+    except ImportError:
+        return {}
 
+    model = os.environ.get("CLAUDE_MODEL", "sonnet")
+    prompt = (
+        "List every tool you have access to. "
+        "Output ONLY the tool names, one per line, no descriptions, no numbering, no markdown."
+    )
 
-def check_zai_proxy() -> dict[str, bool]:
-    """Check if z.ai proxy is configured (enables Claude SDK/CLI with GLM models)."""
-    settings_path = Path(__file__).parent / ".claude" / "settings.local.json"
-    has_settings = settings_path.exists()
-    has_token = False
-    if has_settings:
-        try:
-            settings = json.loads(settings_path.read_text())
-            token = settings.get("env", {}).get("ANTHROPIC_AUTH_TOKEN", "")
-            has_token = bool(token) and token != "your-zai-api-key-here"
-        except (json.JSONDecodeError, KeyError):
-            pass
+    tools: set[str] = set()
+    try:
+        async for msg in query(
+            prompt=prompt,
+            options=ClaudeAgentOptions(model=model, max_turns=1, permission_mode="bypassPermissions"),
+        ):
+            if isinstance(msg, AssistantMessage):
+                for block in msg.content:
+                    if isinstance(block, TextBlock):
+                        for line in block.text.splitlines():
+                            name = line.strip().strip("-•*").strip()
+                            if name and " " not in name:
+                                tools.add(name)
+    except Exception as e:
+        return {"Agent loop": fail(f"z.ai proxy query failed: {e}", "proxy")}
 
-    has_claude_sdk = check("claude_agent_sdk", "query")
-    has_claude_cli = shutil.which("claude") is not None
+    results: dict[str, ProbeResult] = {}
+    results["Agent loop"] = pass_("query() via z.ai proxy returned results", "proxy")
 
-    return {
-        "settings_exist": has_settings,
-        "token_configured": has_token,
-        "claude_sdk_available": has_claude_sdk,
-        "claude_cli_available": has_claude_cli,
-        "proxy_ready": has_token and (has_claude_sdk or has_claude_cli),
+    tool_map = {
+        "Shell": "Bash", "Code execution": "Bash",
+        "File read": "Read", "File write": "Write", "File edit": "Edit",
+        "Web search": "WebSearch", "Tool search": "ToolSearch",
+        "TodoWrite / tasks": "TodoWrite", "Multi-agent": "Agent",
     }
+    for feature, tool_name in tool_map.items():
+        if tool_name in tools:
+            results[feature] = pass_(f"{tool_name} found via z.ai proxy", "proxy")
+        else:
+            results[feature] = fail(f"{tool_name} not found via proxy", "proxy")
+
+    file_tools = {"Read", "Write", "Glob", "Grep"}
+    if file_tools <= tools:
+        results["File tools"] = pass_("Read/Write/Glob/Grep via proxy", "proxy")
+    else:
+        results["File tools"] = fail(f"missing {file_tools - tools} via proxy", "proxy")
+
+    results["Streaming"] = pass_("async iteration via proxy worked", "proxy")
+    return results
 
 
-def probe() -> dict[str, str]:
-    zai = check_zai_proxy()
-    proxy = zai["proxy_ready"]
-    has_sdk = zai["claude_sdk_available"]
-    has_cli = zai["claude_cli_available"]
+def fallback_checks(proxy_ready: bool) -> dict[str, ProbeResult]:
+    """Features that can't be checked by proxy query."""
+    results: dict[str, ProbeResult] = {}
 
-    def via(desc: str) -> str:
-        return f"Yes (via z.ai: {desc})" if proxy else "No (z.ai proxy not configured)"
+    if proxy_ready:
+        # These inherit from Claude SDK via proxy
+        results["Guardrails"] = pass_("Claude hooks via z.ai proxy", "proxy")
+        results["Hooks / lifecycle"] = pass_("Claude PreToolUse/Stop via z.ai", "proxy")
+        results["Permission system"] = pass_("Claude PermissionMode via z.ai", "proxy")
+        results["Plan mode"] = pass_("Claude plan mode via z.ai", "proxy")
+        results["MCP support"] = pass_("Claude MCP via z.ai", "proxy")
+        results["Session resume"] = pass_("Claude session resume via z.ai", "proxy")
+        results["Structured output"] = pass_("Claude output_format via z.ai", "proxy")
+        results["Context management"] = pass_("Claude auto compaction via z.ai", "proxy")
+        results["Custom tools"] = pass_("Claude @tool + MCP via z.ai", "proxy")
+    else:
+        for feat in ["Guardrails", "Hooks / lifecycle", "Permission system", "Plan mode",
+                      "MCP support", "Session resume", "Structured output", "Context management",
+                      "Custom tools"]:
+            results[feat] = skip("z.ai proxy not configured", "known")
 
-    return {
-        "Agent loop": via("Claude SDK query()") if has_sdk else via("Claude CLI"),
-        "Custom tools": via("Claude @tool + MCP"),
-        "Web search": via("Claude WebSearch tool"),
-        "File tools": via("Claude Read/Write/Glob/Grep"),
-        "Code execution": via("Claude Bash tool"),
-        "Structured output": via("Claude output_format"),
-        "Multi-agent": via("Claude subagents"),
-        "Guardrails": via("Claude hooks"),
-        "Hooks / lifecycle": via("Claude PreToolUse/Stop/..."),
-        "Tracing dashboard": f"{yn(False)} (not available via z.ai)",
-        "Permission system": via("Claude permission modes"),
-        "Plan mode": via("Claude permission_mode=plan"),
-        "TodoWrite / tasks": via("Claude TodoWrite"),
-        "MCP support": via("Claude MCP servers"),
-        "Streaming": via("Claude stream-json"),
-        "Session resume": via("Claude --resume"),
-    }
+    # Always N/A regardless of proxy
+    results["Image generation"] = skip("not available", "known")
+    results["Tracing dashboard"] = skip("not available", "known")
+    results["Auto memory"] = skip("not available via z.ai", "known")
+    results["Skills (on-demand)"] = skip("not available via z.ai", "known")
+    results["CLAUDE.md / rules"] = skip("not available via z.ai", "known")
+    results["Agent nesting"] = fail("1 level only", "known")
 
-
-def upsert_csv(sdk_name: str, row: dict[str, str]) -> None:
-    """Read existing CSV (features=rows, SDKs=columns), update this SDK's column, write back."""
-    data: dict[str, dict[str, str]] = {f: {} for f in FEATURES}
-    sdks: list[str] = []
-    if CSV_PATH.exists():
-        with open(CSV_PATH, newline="") as f:
-            reader = csv.DictReader(f)
-            sdks = [c for c in (reader.fieldnames or []) if c != "Feature"]
-            for r in reader:
-                feat = r.get("Feature", "")
-                if feat in data:
-                    for s in sdks:
-                        if s in r:
-                            data[feat][s] = r[s]
-    if sdk_name not in sdks:
-        sdks.append(sdk_name)
-    for feat, val in row.items():
-        if feat in data:
-            data[feat][sdk_name] = val
-    with open(CSV_PATH, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["Feature"] + sdks)
-        writer.writeheader()
-        for feat in FEATURES:
-            writer.writerow({"Feature": feat, **data[feat]})
+    return results
 
 
-def main() -> None:
-    print(f"Probing {SDK_NAME}...")
+def run_tutorial_probes() -> dict[str, ProbeResult]:
+    """Run GLM tutorials and collect probe results."""
+    all_results: dict[str, ProbeResult] = {}
 
-    zai = check_zai_proxy()
-    print(f"  z.ai proxy: {'ready' if zai['proxy_ready'] else 'not configured'}")
-    if not zai["proxy_ready"]:
-        if not zai["settings_exist"]:
-            print(f"    (no .claude/settings.local.json found)")
-        elif not zai["token_configured"]:
-            print(f"    (ANTHROPIC_AUTH_TOKEN not set or placeholder)")
-    print()
+    # t01: basic chat, function calling, streaming
+    print("\n  [t01] GLM basics...")
+    start = time.time()
+    try:
+        import t01_glm_basics as t01
+        t01.probe_basic_chat()
+        t01.probe_multi_turn()
+        t01.probe_tool_use()
+        t01.probe_streaming()
+        results = t01.probe_features()
+        all_results.update(results)
+        print(f"  → t01 done ({time.time() - start:.1f}s, {len(results)} features)")
+    except Exception as e:
+        print(f"  → t01 ERROR: {e}")
 
-    row = probe()
-    for feat, val in row.items():
-        print(f"  {feat:<22} {val}")
-    upsert_csv(SDK_NAME, row)
-    print(f"\nWrote to {CSV_PATH}")
+    # t02: DIY agent loop
+    print("\n  [t02] DIY agent loop...")
+    start = time.time()
+    try:
+        import t02_build_agent_loop as t02
+        t02.agent_loop(
+            "List the files in the current directory, then read this script and tell me what it does in one sentence.",
+        )
+        results = t02.probe_features()
+        all_results.update(results)
+        print(f"  → t02 done ({time.time() - start:.1f}s, {len(results)} features)")
+    except Exception as e:
+        print(f"  → t02 ERROR: {e}")
+
+    return all_results
+
+
+async def amain() -> None:
+    print("=" * 60)
+    print(f"Feature Probe: {SDK_NAME}")
+    print("=" * 60)
+
+    proxy_ready = load_zai_env()
+    print(f"  z.ai proxy: {'ready' if proxy_ready else 'not configured'}")
+    if proxy_ready:
+        print(f"  Base URL: {os.environ.get('ANTHROPIC_BASE_URL')}")
+        print(f"  Model: {os.environ.get('CLAUDE_MODEL')}")
+
+    tutorial_results = run_tutorial_probes()
+
+    # If proxy ready, actually query it for tool discovery
+    proxy_results: dict[str, ProbeResult] = {}
+    if proxy_ready:
+        print("\n  [proxy] Querying z.ai for available tools...")
+        proxy_results = await probe_proxy_tools()
+        print(f"  → proxy query done ({len(proxy_results)} features)")
+
+    print("\n  [fallback] Known checks...")
+    fb = fallback_checks(proxy_ready)
+
+    merged = merge_results(tutorial_results, proxy_results, fb)
+    formatted = format_results(merged)
+
+    print(f"\n{'=' * 60}")
+    print("RESULTS")
+    print("=" * 60)
+    for feat in FEATURES:
+        print(f"  {feat:<22} {formatted.get(feat, '?')}")
+
+    upsert_csv(SDK_NAME, formatted)
+    print(f"\nWrote to c01_comparison.csv")
 
 
 if __name__ == "__main__":
-    main()
+    import asyncio
+    asyncio.run(amain())

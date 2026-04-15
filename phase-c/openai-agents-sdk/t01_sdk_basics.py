@@ -7,6 +7,7 @@ Run: uv run python phase-c/openai-agents-sdk/ex01_sdk_basics.py
 """
 import asyncio
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -132,6 +133,41 @@ async def main() -> None:
     print(f"    {yn(tools['tool_called'])}  @function_tool — custom tools ({tools['tool_call_count']} call(s) observed)")
     print(f"    {yn(web['has_response'])}  WebSearchTool — built-in web search")
     print(f"    {yn(structured['is_pydantic'])}  Structured output via output_type (Pydantic)")
+
+    results = probe_features(basic, tools, web, structured)
+    for feat, r in results.items():
+        print(f"  [{r.status}] {feat}: {r.evidence}")
+
+
+def probe_features(basic: dict, tools: dict, web: dict, structured: dict) -> "dict[str, ProbeResult]":
+    """Return structured probe results for c01_feature_probe.py."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from _probe_utils import ProbeResult, pass_, fail
+
+    results: dict[str, ProbeResult] = {}
+
+    if basic["has_response"]:
+        results["Agent loop"] = pass_("Runner.run() returned response", "t01")
+    else:
+        results["Agent loop"] = fail("no response from Runner.run()", "t01")
+
+    if tools["tool_called"]:
+        results["Custom tools"] = pass_(f"@function_tool called {tools['tool_call_count']} times", "t01")
+    else:
+        results["Custom tools"] = fail("function_tool not called", "t01")
+
+    if web["has_response"]:
+        results["Web search"] = pass_("WebSearchTool returned results", "t01")
+    else:
+        results["Web search"] = fail("WebSearchTool no response", "t01")
+
+    if structured["is_pydantic"]:
+        results["Structured output"] = pass_("output_type returned Pydantic model", "t01")
+    else:
+        results["Structured output"] = fail("no Pydantic output", "t01")
+
+    return results
 
 
 if __name__ == "__main__":

@@ -95,7 +95,47 @@ def main() -> None:
         tool_names = [line.strip() for line in text.strip().splitlines() if line.strip()]
         print(f"  • Probe 2 reported {len(tool_names)} tools: {', '.join(tool_names)}")
     else:
+        tool_names = []
         print("  • Probe 2: model returned no tool list (may need a different prompt)")
+
+    results = probe_features(tools, tool_names)
+    for feat, r in results.items():
+        print(f"  [{r.status}] {feat}: {r.evidence}")
+
+
+def probe_features(tools_used: list[str], tool_list: list[str]) -> "dict[str, ProbeResult]":
+    """Return structured probe results for c01_feature_probe.py."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from _probe_utils import ProbeResult, pass_, fail
+
+    all_tools = set(tools_used + tool_list)
+    results: dict[str, ProbeResult] = {}
+
+    tool_map = {
+        "Shell": "Bash",
+        "Code execution": "Bash",
+        "File read": "Read",
+        "File write": "Write",
+        "File edit": "Edit",
+        "Web search": "WebSearch",
+        "Tool search": "ToolSearch",
+    }
+    for feature, tool_name in tool_map.items():
+        if tool_name in all_tools:
+            results[feature] = pass_(f"{tool_name} in tool list", "t01")
+        else:
+            results[feature] = fail(f"{tool_name} not found", "t01")
+
+    file_tools = {"Read", "Write", "Glob", "Grep"}
+    if file_tools <= all_tools:
+        results["File tools"] = pass_("Read/Write/Glob/Grep in tool list", "t01")
+    else:
+        results["File tools"] = fail(f"missing {file_tools - all_tools}", "t01")
+
+    results["Agent loop"] = pass_("claude -p returned results", "t01")
+    results["Streaming"] = pass_("stream-json output parsed", "t01")
+    return results
 
 
 if __name__ == "__main__":

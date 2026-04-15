@@ -64,14 +64,8 @@ def _truncate(s: str, max_len: int = 120) -> str:
     return s[:max_len] + "..." if len(s) > max_len else s
 
 
-async def main() -> None:
-    print("=" * 60)
-    print("safe_write — sandboxed file creation")
-    print("=" * 60)
-    print("  Built-in Write/Edit are BLOCKED via disallowed_tools.")
-    print("  A custom safe_write MCP tool enforces workspace boundary.")
-    print()
-
+async def run_probe() -> Counter:
+    """Run the safe_write probe and return tool counts."""
     tool_counts: Counter[str] = Counter()
 
     with tempfile.TemporaryDirectory(prefix="c1_ex02b_") as tmpdir:
@@ -141,6 +135,44 @@ async def main() -> None:
         print("  • pattern works: disallowed_tools + create_sdk_mcp_server = sandboxed tools")
     elif safe_count == 0:
         print("  • safe_write was not used — model may have used Bash or another workaround")
+
+    return tool_counts
+
+
+async def main() -> None:
+    print("=" * 60)
+    print("safe_write — sandboxed file creation")
+    print("=" * 60)
+    print("  Built-in Write/Edit are BLOCKED via disallowed_tools.")
+    print("  A custom safe_write MCP tool enforces workspace boundary.")
+    print()
+
+    tool_counts = await run_probe()
+
+    results = probe_features(tool_counts)
+    for feat, r in results.items():
+        print(f"  [{r.status}] {feat}: {r.evidence}")
+
+
+def probe_features(tool_counts: Counter) -> "dict[str, ProbeResult]":
+    """Return structured probe results for c01_feature_probe.py."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from _probe_utils import ProbeResult, pass_, fail
+
+    results: dict[str, ProbeResult] = {}
+    safe_count = tool_counts.get("mcp__sandbox__safe_write", 0)
+    if safe_count > 0:
+        results["Custom tools"] = pass_(f"safe_write MCP tool used {safe_count} times", "t02b")
+        results["MCP support"] = pass_(f"create_sdk_mcp_server worked, tool called {safe_count} times", "t02b")
+    else:
+        results["Custom tools"] = fail("custom MCP tool not invoked", "t02b")
+        results["MCP support"] = fail("MCP tool not invoked", "t02b")
+
+    write_blocked = "Write" not in tool_counts
+    if write_blocked:
+        results["Permission system"] = pass_("disallowed_tools blocked Write", "t02b")
+    return results
 
 
 if __name__ == "__main__":

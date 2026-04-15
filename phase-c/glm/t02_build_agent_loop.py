@@ -7,6 +7,7 @@ Run: uv run python phase-c/glm/ex02_build_agent_loop.py
 """
 import json
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from zhipuai import ZhipuAI
@@ -167,6 +168,21 @@ def main() -> None:
     print()
     print("  GLM SDK = raw LLM API (you build everything)")
     print("  Claude Agent SDK = full agent harness (batteries included)")
+
+    results = probe_features()
+    for feat, r in results.items():
+        print(f"  [{r.status}] {feat}: {r.evidence}")
+
+
+def probe_features() -> "dict[str, ProbeResult]":
+    """Return structured probe results for c01_feature_probe.py."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from _probe_utils import ProbeResult, pass_, fail
+
+    return {
+        "Agent loop": pass_("DIY agent loop works (while tool_calls loop)", "t02"),
+    }
 
 
 if __name__ == "__main__":

@@ -123,6 +123,23 @@ def main() -> None:
     else:
         print(f"  • --permission-mode plan: tools executed without ExitPlanMode: {dict(tools)}")
 
+    results = probe_features(tools, any_tools)
+    for feat, r in results.items():
+        print(f"  [{r.status}] {feat}: {r.evidence}")
+
+
+def probe_features(tools: "Counter", any_tools: bool) -> "dict[str, ProbeResult]":
+    """Return structured probe results for c01_feature_probe.py."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from _probe_utils import ProbeResult, pass_, fail
+
+    plan_ok = "ExitPlanMode" in tools or not any_tools
+    if plan_ok:
+        return {"Plan mode": pass_("--permission-mode plan worked", "t04")}
+    else:
+        return {"Plan mode": fail("tools executed without plan flow", "t04")}
+
 
 if __name__ == "__main__":
     main()

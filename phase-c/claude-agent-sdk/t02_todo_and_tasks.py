@@ -124,6 +124,23 @@ async def main() -> None:
         print("  • TodoWrite was NOT used in either probe")
         print("  • May need more complex tasks or explicit nudging to trigger it")
 
+    results = probe_features(tools_with, tools_without)
+    for feat, r in results.items():
+        print(f"  [{r.status}] {feat}: {r.evidence}")
+
+
+def probe_features(tools_with: Counter, tools_without: Counter) -> "dict[str, ProbeResult]":
+    """Return structured probe results for c01_feature_probe.py."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from _probe_utils import ProbeResult, pass_, fail
+
+    todo_found = "TodoWrite" in tools_with or "TodoWrite" in tools_without
+    if todo_found:
+        return {"TodoWrite / tasks": pass_("TodoWrite tool used", "t02")}
+    else:
+        return {"TodoWrite / tasks": fail("not used in either probe", "t02")}
+
 
 if __name__ == "__main__":
     asyncio.run(main())

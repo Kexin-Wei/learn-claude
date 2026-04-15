@@ -1,21 +1,27 @@
 #!/usr/bin/env python3
-"""Probe OpenAI Agents SDK features and write a row to phase-c/c01_comparison.csv.
+"""Probe OpenAI Agents SDK features by running tutorials and import checks.
 
-Run: uv run python phase-c/openai-agents-sdk/comparison_probe.py
+Run: uv run python phase-c/openai-agents-sdk/c01_feature_probe.py
 """
-import csv
+import asyncio
 import importlib
+import sys
+import time
 from pathlib import Path
 
-CSV_PATH = Path(__file__).parent.parent / "c01_comparison.csv"
-SDK_NAME = "OpenAI Agents SDK"
+from dotenv import load_dotenv
 
-FEATURES = [
-    "Agent loop", "Custom tools", "Web search", "File tools", "Code execution",
-    "Structured output", "Multi-agent", "Guardrails", "Hooks / lifecycle",
-    "Tracing dashboard", "Permission system", "Plan mode", "TodoWrite / tasks",
-    "MCP support", "Streaming", "Session resume",
-]
+load_dotenv(override=True)
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent))
+
+from _probe_utils import (
+    FEATURES, ProbeResult, fail, format_results, merge_results, pass_, skip,
+    upsert_csv,
+)
+
+SDK_NAME = "OpenAI Agents SDK"
 
 
 def check(module: str, attr: str) -> bool:
@@ -25,85 +31,184 @@ def check(module: str, attr: str) -> bool:
         return False
 
 
-def yn(val: bool) -> str:
-    return "Yes" if val else "No"
-
-
 def ag(attr: str) -> bool:
     return check("agents", attr)
 
 
-def probe() -> dict[str, str]:
-    has_runner = ag("Runner")
-    has_func_tool = ag("function_tool")
-    has_web = ag("WebSearchTool")
-    has_file = ag("FileSearchTool")
-    has_code = ag("CodeInterpreterTool")
-    has_agent = ag("Agent")
-    has_handoff = ag("handoff")
-    has_input_guard = ag("InputGuardrail")
-    has_output_guard = ag("OutputGuardrail")
-    has_run_hooks = ag("RunHooks")
-    has_agent_hooks = ag("AgentHooks")
-    has_tracing = ag("set_tracing_disabled")
-    has_trace_proc = ag("set_trace_processors")
-    has_mcp_stdio = ag("MCPServerStdio")
-    has_mcp_sse = ag("MCPServerSse")
+def fallback_checks() -> dict[str, ProbeResult]:
+    """Features checked by import (hosted tools) or known values."""
+    results: dict[str, ProbeResult] = {}
 
-    return {
-        "Agent loop": f"{yn(has_runner)} (Runner.run)",
-        "Custom tools": f"{yn(has_func_tool)} (@function_tool)",
-        "Web search": f"{yn(has_web)} (WebSearchTool)",
-        "File tools": f"{yn(has_file)} (FileSearchTool)",
-        "Code execution": f"{yn(has_code)} (CodeInterpreterTool)",
-        "Structured output": f"{yn(has_agent)} (output_type / Pydantic)",
-        "Multi-agent": f"{yn(has_handoff)} (handoffs)",
-        "Guardrails": f"{yn(has_input_guard and has_output_guard)} (Input/OutputGuardrail)",
-        "Hooks / lifecycle": f"{yn(has_run_hooks and has_agent_hooks)} (RunHooks / AgentHooks)",
-        "Tracing dashboard": f"{yn(has_tracing)} (OpenAI dashboard)",
-        "Permission system": f"{yn(False)} (not in SDK)",
-        "Plan mode": f"{yn(False)} (not in SDK)",
-        "TodoWrite / tasks": f"{yn(False)} (not in SDK)",
-        "MCP support": f"{yn(has_mcp_stdio or has_mcp_sse)} (MCPServer*)",
-        "Streaming": f"{yn(has_runner)} (run_streamed)",
-        "Session resume": f"{yn(has_runner)} (previous_response)",
-    }
+    # Hosted tools — check by import
+    if ag("ShellTool"):
+        results["Shell"] = pass_("ShellTool importable", "import")
+    else:
+        results["Shell"] = fail("ShellTool not found", "import")
 
+    if ag("ImageGenerationTool"):
+        results["Image generation"] = pass_("ImageGenerationTool importable", "import")
+    else:
+        results["Image generation"] = fail("ImageGenerationTool not found", "import")
 
-def upsert_csv(sdk_name: str, row: dict[str, str]) -> None:
-    """Read existing CSV (features=rows, SDKs=columns), update this SDK's column, write back."""
-    data: dict[str, dict[str, str]] = {f: {} for f in FEATURES}
-    sdks: list[str] = []
-    if CSV_PATH.exists():
-        with open(CSV_PATH, newline="") as f:
-            reader = csv.DictReader(f)
-            sdks = [c for c in (reader.fieldnames or []) if c != "Feature"]
-            for r in reader:
-                feat = r.get("Feature", "")
-                if feat in data:
-                    for s in sdks:
-                        if s in r:
-                            data[feat][s] = r[s]
-    if sdk_name not in sdks:
-        sdks.append(sdk_name)
-    for feat, val in row.items():
-        if feat in data:
-            data[feat][sdk_name] = val
-    with open(CSV_PATH, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["Feature"] + sdks)
-        writer.writeheader()
-        for feat in FEATURES:
-            writer.writerow({"Feature": feat, **data[feat]})
+    if ag("ApplyPatchTool"):
+        results["File edit"] = pass_("ApplyPatchTool importable", "import")
+    else:
+        results["File edit"] = fail("ApplyPatchTool not found", "import")
+
+    if ag("FileSearchTool"):
+        results["File tools"] = pass_("FileSearchTool importable", "import")
+    else:
+        results["File tools"] = fail("FileSearchTool not found", "import")
+
+    if ag("CodeInterpreterTool"):
+        results["Code execution"] = pass_("CodeInterpreterTool importable", "import")
+    else:
+        results["Code execution"] = fail("CodeInterpreterTool not found", "import")
+
+    if ag("MCPServerStdio") or ag("MCPServerSse"):
+        results["MCP support"] = pass_("MCPServer* importable", "import")
+    else:
+        results["MCP support"] = fail("MCPServer not found", "import")
+
+    # Streaming and Session resume: checked by live tests in run_extra_probes()
+
+    # Known values
+    results["File read"] = skip("DIY via @function_tool", "known")
+    results["File write"] = skip("DIY via @function_tool", "known")
+    results["Tool search"] = skip("not in SDK", "known")
+    results["Permission system"] = skip("not in SDK", "known")
+    results["Plan mode"] = skip("not in SDK", "known")
+    results["TodoWrite / tasks"] = skip("not in SDK", "known")
+    results["Context management"] = skip("manual", "known")
+    results["Auto memory"] = skip("not in SDK", "known")
+    results["Skills (on-demand)"] = skip("not in SDK", "known")
+    results["CLAUDE.md / rules"] = skip("not in SDK", "known")
+
+    return results
 
 
-def main() -> None:
-    print(f"Probing {SDK_NAME}...")
-    row = probe()
-    for feat, val in row.items():
-        print(f"  {feat:<22} {val}")
-    upsert_csv(SDK_NAME, row)
-    print(f"\nWrote to {CSV_PATH}")
+async def run_tutorial_probes() -> dict[str, ProbeResult]:
+    """Run tutorials and collect probe results."""
+    all_results: dict[str, ProbeResult] = {}
+
+    # t01: basic agent, custom tools, web search, structured output
+    print("\n  [t01] SDK basics...")
+    start = time.time()
+    try:
+        import t01_sdk_basics as t01
+        basic = await t01.probe_basic_agent()
+        tools = await t01.probe_custom_tools()
+        web = await t01.probe_web_search()
+        structured = await t01.probe_structured_output()
+        results = t01.probe_features(basic, tools, web, structured)
+        all_results.update(results)
+        print(f"  → t01 done ({time.time() - start:.1f}s, {len(results)} features)")
+    except Exception as e:
+        print(f"  → t01 ERROR: {e}")
+
+    # t02: handoffs, guardrails
+    print("\n  [t02] Handoffs & guardrails...")
+    start = time.time()
+    try:
+        import t02_handoffs_and_guardrails as t02
+        handoff_results = await t02.probe_handoffs()
+        guardrail_results = await t02.probe_guardrails()
+        results = t02.probe_features(handoff_results, guardrail_results)
+        all_results.update(results)
+        print(f"  → t02 done ({time.time() - start:.1f}s, {len(results)} features)")
+    except Exception as e:
+        print(f"  → t02 ERROR: {e}")
+
+    # t03: hooks, tracing
+    print("\n  [t03] Hooks & tracing...")
+    start = time.time()
+    try:
+        import t03_hooks_and_tracing as t03
+        run = await t03.probe_run_hooks()
+        agent = await t03.probe_agent_hooks()
+        tracing = await t03.probe_tracing()
+        results = t03.probe_features(run, agent, tracing)
+        all_results.update(results)
+        print(f"  → t03 done ({time.time() - start:.1f}s, {len(results)} features)")
+    except Exception as e:
+        print(f"  → t03 ERROR: {e}")
+
+    return all_results
+
+
+async def run_extra_probes() -> dict[str, ProbeResult]:
+    """Live tests for streaming and session resume."""
+    from agents import Agent, Runner
+    import os
+
+    results: dict[str, ProbeResult] = {}
+    model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+
+    # Streaming: actually call run_streamed
+    print("\n  [live] Streaming (run_streamed)...")
+    try:
+        agent = Agent(name="streamer", instructions="Be concise.", model=model)
+        result = Runner.run_streamed(agent, input="Say hi in one word.")
+        chunks = 0
+        async for event in result.stream_events():
+            chunks += 1
+        # Access final output from the completed result
+        final = result.final_output
+        if final and chunks > 0:
+            results["Streaming"] = pass_(f"run_streamed produced {chunks} events", "live")
+        else:
+            results["Streaming"] = fail(f"no events from run_streamed", "live")
+    except Exception as e:
+        results["Streaming"] = fail(f"run_streamed failed: {e}", "live")
+
+    # Session resume: run once, then resume with previous_response_id
+    print("  [live] Session resume (previous_response_id)...")
+    try:
+        agent = Agent(name="memory-test", instructions="Be concise.", model=model)
+        result1 = await Runner.run(agent, input="Remember the number 42.")
+        # Find the response ID from raw_responses
+        prev_id = None
+        if hasattr(result1, "raw_responses") and result1.raw_responses:
+            last_resp = result1.raw_responses[-1]
+            # Try common attribute names for response ID
+            prev_id = getattr(last_resp, "id", None) or getattr(last_resp, "response_id", None)
+        if prev_id:
+            result2 = await Runner.run(agent, input="What number did I tell you?", previous_response_id=prev_id)
+            results["Session resume"] = pass_(f"previous_response_id={prev_id[:20]}... accepted", "live")
+        else:
+            # Can't find response ID — check if the API supports it at all
+            resp_attrs = [a for a in dir(result1.raw_responses[-1]) if not a.startswith("_")] if result1.raw_responses else []
+            results["Session resume"] = fail(f"no response ID found in attrs: {resp_attrs[:10]}", "live")
+    except Exception as e:
+        results["Session resume"] = fail(f"previous_response_id failed: {e}", "live")
+
+    return results
+
+
+async def main() -> None:
+    print("=" * 60)
+    print(f"Feature Probe: {SDK_NAME}")
+    print("=" * 60)
+
+    tutorial_results = await run_tutorial_probes()
+
+    extra_results = await run_extra_probes()
+
+    print("\n  [fallback] Import/known checks...")
+    fb = fallback_checks()
+
+    merged = merge_results(tutorial_results, extra_results, fb)
+    formatted = format_results(merged)
+
+    print(f"\n{'=' * 60}")
+    print("RESULTS")
+    print("=" * 60)
+    for feat in FEATURES:
+        print(f"  {feat:<22} {formatted.get(feat, '?')}")
+
+    upsert_csv(SDK_NAME, formatted)
+    print(f"\nWrote to c01_comparison.csv")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

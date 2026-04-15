@@ -221,6 +221,40 @@ async def main() -> None:
     print(f"  Part B — structured output: {'produced output' if structured_ok else 'no output'}")
     print(f"  Part C — disallowed_tools: attempted tools = {blocked_tools}")
 
+    results = probe_features(custom_tools, structured_ok, blocked_tools)
+    for feat, r in results.items():
+        print(f"  [{r.status}] {feat}: {r.evidence}")
+
+
+def probe_features(
+    custom_tools: list[str], structured_ok: bool, blocked_tools: list[str],
+) -> "dict[str, ProbeResult]":
+    """Return structured probe results for c01_feature_probe.py."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from _probe_utils import ProbeResult, pass_, fail
+
+    results: dict[str, ProbeResult] = {}
+
+    if structured_ok:
+        results["Structured output"] = pass_("output_format produced structured JSON", "t05")
+    else:
+        results["Structured output"] = fail("no structured output produced", "t05")
+
+    write_blocked = "Write" not in blocked_tools and "Edit" not in blocked_tools
+    if write_blocked:
+        results["Permission system"] = pass_("disallowed_tools blocked Write/Edit", "t05")
+        results["Guardrails"] = pass_("disallowed_tools enforced", "t05")
+    else:
+        results["Permission system"] = fail("Write/Edit not blocked", "t05")
+        results["Guardrails"] = fail("disallowed_tools not enforced", "t05")
+
+    # Hooks: t02b tests disallowed_tools which uses the PreToolUse hook mechanism.
+    # But we don't directly test hook callbacks here — that requires ClaudeSDKClient streaming mode.
+    # Leave hooks to be checked by import in c01 fallbacks.
+
+    return results
+
 
 if __name__ == "__main__":
     asyncio.run(main())

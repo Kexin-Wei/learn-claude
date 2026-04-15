@@ -165,6 +165,22 @@ async def main() -> None:
     print(f"  Part B — extended thinking: {num_thinking} thinking blocks observed")
     print("  Part C — effort levels: see per-level results above")
 
+    results = probe_features(tools_blocked)
+    for feat, r in results.items():
+        print(f"  [{r.status}] {feat}: {r.evidence}")
+
+
+def probe_features(tools_blocked: bool) -> "dict[str, ProbeResult]":
+    """Return structured probe results for c01_feature_probe.py."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from _probe_utils import ProbeResult, pass_, fail
+
+    if tools_blocked:
+        return {"Plan mode": pass_("permission_mode=plan blocked tool execution", "t04")}
+    else:
+        return {"Plan mode": fail("tools were not blocked in plan mode", "t04")}
+
 
 if __name__ == "__main__":
     asyncio.run(main())

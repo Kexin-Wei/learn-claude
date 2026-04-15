@@ -163,6 +163,26 @@ async def main() -> None:
     print(f"  Part A — auto-spawn: {'YES (Agent tool used)' if auto_spawned else 'NO (handled all steps itself)'}")
     print(f"  Part B — manual agents: {'YES (Agent tool used)' if manual_used else 'NO (may not have dispatched)'}")
 
+    results = probe_features(auto_spawned, manual_used)
+    for feat, r in results.items():
+        print(f"  [{r.status}] {feat}: {r.evidence}")
+
+
+def probe_features(auto_spawned: bool, manual_used: bool) -> "dict[str, ProbeResult]":
+    """Return structured probe results for c01_feature_probe.py."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from _probe_utils import ProbeResult, pass_, fail
+
+    results: dict[str, ProbeResult] = {}
+    if auto_spawned or manual_used:
+        mode = "auto-spawn" if auto_spawned else "manual"
+        results["Multi-agent"] = pass_(f"Agent tool used in {mode} mode", "t03")
+    else:
+        results["Multi-agent"] = fail("Agent tool not used in either mode", "t03")
+    results["Agent nesting"] = fail("1 level only", "t03")
+    return results
+
 
 if __name__ == "__main__":
     asyncio.run(main())

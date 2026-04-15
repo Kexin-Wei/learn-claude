@@ -7,6 +7,7 @@ Run: uv run python phase-c/openai-agents-sdk/ex03_hooks_and_tracing.py
 """
 import asyncio
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -144,6 +145,35 @@ async def main() -> None:
     print(f"  AgentHooks events fired: {', '.join(agent_events)}")
     print(f"  {yn(tracing['has_set_disabled'])}  Built-in tracing (set_tracing_disabled)")
     print(f"  {yn(tracing['has_set_processors'])}  Custom trace processors (set_trace_processors)")
+
+    results = probe_features(run, agent, tracing)
+    for feat, r in results.items():
+        print(f"  [{r.status}] {feat}: {r.evidence}")
+
+
+def probe_features(run: dict, agent: dict, tracing: dict) -> "dict[str, ProbeResult]":
+    """Return structured probe results for c01_feature_probe.py."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from _probe_utils import ProbeResult, pass_, fail
+
+    results: dict[str, ProbeResult] = {}
+
+    run_events = run.get("events", [])
+    agent_events = agent.get("events", [])
+    if run_events or agent_events:
+        results["Hooks / lifecycle"] = pass_(
+            f"RunHooks: {len(set(run_events))} events, AgentHooks: {len(set(agent_events))} events", "t03"
+        )
+    else:
+        results["Hooks / lifecycle"] = fail("no hook events fired", "t03")
+
+    if tracing["has_set_disabled"]:
+        results["Tracing dashboard"] = pass_("set_tracing_disabled available", "t03")
+    else:
+        results["Tracing dashboard"] = fail("tracing API not found", "t03")
+
+    return results
 
 
 if __name__ == "__main__":

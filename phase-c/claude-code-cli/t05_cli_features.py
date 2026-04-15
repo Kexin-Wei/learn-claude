@@ -138,6 +138,33 @@ def main() -> None:
     print(f"  Part C — --json-schema: {'produced output' if text_c.strip() else 'no output'}")
     print(f"  Part D — --system-prompt: {'produced output' if text_d.strip() else 'no output'}")
 
+    results = probe_features(non_allowed, text_c)
+    for feat, r in results.items():
+        print(f"  [{r.status}] {feat}: {r.evidence}")
+
+
+def probe_features(non_allowed: set, text_c: str) -> "dict[str, ProbeResult]":
+    """Return structured probe results for c01_feature_probe.py."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from _probe_utils import ProbeResult, pass_, fail
+
+    results: dict[str, ProbeResult] = {}
+
+    if not non_allowed:
+        results["Permission system"] = pass_("--tools restriction enforced", "t05")
+        results["Guardrails"] = pass_("tool restriction worked", "t05")
+    else:
+        results["Permission system"] = fail(f"leaked tools: {non_allowed}", "t05")
+        results["Guardrails"] = fail(f"tool restriction leaked", "t05")
+
+    if text_c.strip():
+        results["Structured output"] = pass_("--json-schema produced output", "t05")
+    else:
+        results["Structured output"] = fail("no structured output", "t05")
+
+    return results
+
 
 if __name__ == "__main__":
     main()

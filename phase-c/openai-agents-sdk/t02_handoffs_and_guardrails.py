@@ -7,6 +7,7 @@ Run: uv run python phase-c/openai-agents-sdk/ex02_handoffs_and_guardrails.py
 """
 import asyncio
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -155,6 +156,33 @@ async def main() -> None:
     print("  Guardrails (input safety):")
     print(f"    {yn(guardrail_results['normal_passed'])}  Normal input passed through")
     print(f"    {yn(guardrail_results['blocked'])}  Harmful input blocked by InputGuardrail")
+
+    results = probe_features(handoff_results, guardrail_results)
+    for feat, r in results.items():
+        print(f"  [{r.status}] {feat}: {r.evidence}")
+
+
+def probe_features(handoff_results: dict, guardrail_results: dict) -> "dict[str, ProbeResult]":
+    """Return structured probe results for c01_feature_probe.py."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from _probe_utils import ProbeResult, pass_, fail
+
+    results: dict[str, ProbeResult] = {}
+
+    if handoff_results["handoff_occurred"]:
+        results["Multi-agent"] = pass_(f"handoff to {handoff_results['routed_to']}", "t02")
+        results["Agent nesting"] = pass_("handoff chains supported", "t02")
+    else:
+        results["Multi-agent"] = fail("no handoff occurred", "t02")
+        results["Agent nesting"] = fail("handoff not triggered", "t02")
+
+    if guardrail_results["blocked"]:
+        results["Guardrails"] = pass_("InputGuardrail blocked harmful input", "t02")
+    else:
+        results["Guardrails"] = fail("guardrail did not block", "t02")
+
+    return results
 
 
 if __name__ == "__main__":
