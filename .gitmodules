@@ -7,3 +7,6 @@
 [submodule "claude-quickstarts"]
 	path = phase-a/quickstarts
 	url = git@github.com:anthropics/claude-quickstarts.git
+[submodule "phase-c"]
+	path = phase-c
+	url = git@github.com:Kexin-Wei/ai-sdk-comparison.git
